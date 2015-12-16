@@ -85,6 +85,67 @@ class Gearman extends Adaptable
             $filters
         );
     }
+    
+        /**
+     * lists the redis queue of scheduled jobs
+     *
+     * @param string $configName Configuration to use
+     * @return mixed Returned value by adapter's listQueue() method
+     */
+    public static function listQueue($configName)
+    {
+        $config = static::getConfig($configName);
+        $filters = $config['filters'];
+        return static::_filter(
+            __FUNCTION__,
+            Array(),
+            function ($self, $params) use ($configName) {
+                return $self::adapter($configName)->listQueue();
+            },
+            $filters
+        );
+    }
+    /**
+     * Deletes a scheduled job from the queue
+     *
+     * @param string $configName Configuration to use
+     * @param string $taskId the redis ID of the task to delete
+     */
+    public static function deleteScheduledTask($configName, $taskId)
+    {
+        $config = static::getConfig($configName);
+        $filters = $config['filters'];
+        $params = compact('taskId');
+        return static::_filter(
+            __FUNCTION__,
+            $params,
+            function ($self, $params) use ($configName) {
+                return $self::adapter($configName)->deleteScheduledTask(
+                        $params['taskId']
+                        );
+            },
+            $filters
+        );
+    }
+    /**
+     * clears the redis queue of scheduled jobs
+     *
+     * @param string $configName Configuration to use
+     * @return mixed Returned value by adapter's clearQueue() method
+     */
+    public static function clearQueue($configName)
+    {
+        $config = static::getConfig($configName);
+        $filters = $config['filters'];
+        return static::_filter(
+            __FUNCTION__,
+            Array(),
+            function ($self, $params) use ($configName) {
+                return $self::adapter($configName)->clearQueue();
+            },
+            $filters
+        );
+    }
 
     /**
      * Processes a scheduled job
