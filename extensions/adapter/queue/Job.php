@@ -211,6 +211,98 @@ class Job extends Object
         }
         return $this->queue($id, $action, $workload, $options);
     }
+    
+        /**
+     * Clear the schedled job queue
+     * 
+     */
+    public function listQueue() {
+        $config = $this->config('redis');
+        if (empty($config['enabled'])) {
+            throw new ConfigException('Can\'t clear queue without Redis support');
+        }
+
+        $now = new DateTime('now', new DateTimeZone('UTC'));
+        $params = compact('now');
+
+        return $this->_filter(
+                        __METHOD__, $params, function ($self, $params) {
+                    $config = $self->config('redis');
+                    $redis = $self->getRedis();
+                    $key = (!empty($config['schedulePrefix']) ? $config['schedulePrefix'] : 'job_scheduled');
+                    $redis->watch($key);
+
+                    $tasks = $redis->zRangeByScore($key, '-inf', '+inf');
+                    $returnedTasks = Array();
+                    if (!empty($tasks)) {
+                        foreach ($tasks as $json) {
+                            //var_dump($json);
+                            array_push($returnedTasks, json_decode($json));
+                        }
+                    }
+                    //var_dump($returnedTasks);
+                    return $returnedTasks;
+                }
+        );
+    }
+
+    /**
+     * Clear the schedled job queue
+     * 
+     */
+    public function clearQueue() {
+        $config = $this->config('redis');
+        if (empty($config['enabled'])) {
+            throw new ConfigException('Can\'t clear queue without Redis support');
+        }
+
+        $params = Array();
+        return $this->_filter(
+                        __METHOD__, $params, function ($self, $params) {
+                    $config = $self->config('redis');
+                    $redis = $self->getRedis();
+                    $key = (!empty($config['schedulePrefix']) ? $config['schedulePrefix'] : 'job_scheduled');
+                    $redis->del($key);
+                }
+        );
+    }
+
+    /**
+     * deletes a scheduled task
+     *
+     * @filter
+     */
+    public function deleteScheduledTask($taskId) {
+        $config = $this->config('redis');
+        if (empty($config['enabled'])) {
+            throw new ConfigException('Can\'t delete scheduled task without Redis support');
+        }
+
+        $now = new DateTime('now', new DateTimeZone('UTC'));
+        $params = compact('now', 'taskId');
+        return $this->_filter(
+                        __METHOD__, $params, function ($self, $params) {
+                    $config = $self->config('redis');
+                    $redis = $self->getRedis();
+                    $key = (!empty($config['schedulePrefix']) ? $config['schedulePrefix'] : 'job_scheduled');
+                    $redis->watch($key);
+
+                    $tasks = $redis->zRangeByScore($key, '-inf', '+inf');
+                    if (!empty($tasks)) {
+                        foreach ($tasks as $json) {
+                            //var_dump($json);
+                            $task = json_decode($json, true);
+                            if($task['id'] == $params['taskId']) {
+                                //var_dump($json);
+                                $redis->multi()->zrem($key, $json);
+                                $result = $redis->exec();
+                            }
+                        }
+                    }
+                    $redis->unwatch();
+                }
+        );
+    }
 
     /**
      * Process a scheduled task
